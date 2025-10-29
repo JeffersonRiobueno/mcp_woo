@@ -40,20 +40,20 @@ class Product(BaseModel):
     regular_price: str
     sale_price: str
     stock_status: str
-    categories: List[Dict[str, str]] = Field(default_factory=list)
+    categories: List[Dict] = Field(default_factory=list)
 
 class Order(BaseModel):
     id: int
     status: str
     total: str
     customer_id: int
-    line_items: List[Dict[str, str]] = Field(default_factory=list)
+    line_items: List[Dict] = Field(default_factory=list)
 
 def get_auth():
     """Get WooCommerce authentication"""
     return (WOO_CONSUMER_KEY, WOO_CONSUMER_SECRET)
 
-def make_request(endpoint: str, method: str = "GET", data: Optional[Dict] = None) -> Dict:
+def make_request(endpoint: str, method: str = "GET", params: Optional[Dict] = None, data: Optional[Dict] = None) -> Dict:
     """Make authenticated request to WooCommerce API"""
     try:
         url = f"{WOO_URL}/wp-json/wc/v3/{endpoint}"
@@ -62,7 +62,7 @@ def make_request(endpoint: str, method: str = "GET", data: Optional[Dict] = None
         logger.info(f"Making {method} request to {url}")
 
         if method == "GET":
-            response = requests.get(url, auth=auth, params=data, timeout=30)
+            response = requests.get(url, auth=auth, params=params, timeout=30)
         elif method == "POST":
             response = requests.post(url, auth=auth, json=data, timeout=30)
         else:
@@ -84,7 +84,7 @@ def search_products(query: str, per_page: int = 10) -> List[Product]:
     try:
         logger.info(f"Searching products with query: {query}")
         params = {"search": query, "per_page": per_page}
-        products = make_request("products", data=params)
+        products = make_request("products", params=params)
         result = [Product(**product) for product in products]
         logger.info(f"Found {len(result)} products")
         return result
@@ -98,7 +98,7 @@ def list_products(per_page: int = 20, page: int = 1) -> List[Product]:
     try:
         logger.info(f"Listing products: page {page}, per_page {per_page}")
         params = {"per_page": per_page, "page": page}
-        products = make_request("products", data=params)
+        products = make_request("products", params=params)
         result = [Product(**product) for product in products]
         logger.info(f"Retrieved {len(result)} products")
         return result
@@ -150,7 +150,7 @@ def list_orders(customer_id: Optional[int] = None, status: Optional[str] = None,
         if status:
             params["status"] = status
 
-        orders = make_request("orders", data=params)
+        orders = make_request("orders", params=params)
         result = [Order(**order) for order in orders]
         logger.info(f"Retrieved {len(result)} orders")
         return result
