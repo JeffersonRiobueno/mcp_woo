@@ -1,0 +1,10 @@
+services:
+  mcp-woo:
+    build: .
+    ports:
+      - "8200:8000"
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    command: python main.py
