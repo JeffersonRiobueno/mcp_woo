@@ -5,6 +5,9 @@ from pydantic import BaseModel, Field
 from mcp.server.fastmcp import FastMCP
 from dotenv import load_dotenv
 import logging
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import StreamingResponse
+import uvicorn
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -18,6 +21,11 @@ WOO_URL = os.getenv("WOO_URL", "https://yourstore.com")
 WOO_CONSUMER_KEY = os.getenv("WOO_CONSUMER_KEY")
 WOO_CONSUMER_SECRET = os.getenv("WOO_CONSUMER_SECRET")
 
+# Authentication configuration
+API_KEY = os.getenv("MCP_API_KEY")
+if not API_KEY:
+    logger.warning("MCP_API_KEY not set - server will run without authentication (NOT RECOMMENDED FOR PRODUCTION)")
+
 # Validate required environment variables
 if not WOO_CONSUMER_KEY or not WOO_CONSUMER_SECRET:
     logger.error("WOO_CONSUMER_KEY and WOO_CONSUMER_SECRET must be set in environment variables")
@@ -28,6 +36,10 @@ if WOO_URL == "https://yourstore.com":
     exit(1)
 
 logger.info(f"Initializing WooCommerce MCP Server for {WOO_URL}")
+if API_KEY:
+    logger.info("Authentication enabled with API key")
+else:
+    logger.warning("Running without authentication - use MCP_API_KEY for security")
 
 # Initialize MCP server
 mcp = FastMCP("WooCommerce MCP Server")
@@ -158,12 +170,54 @@ def list_orders(customer_id: Optional[int] = None, status: Optional[str] = None,
         logger.error(f"Error in list_orders: {e}")
         return []
 
+def authenticate_request(request: Request) -> bool:
+    """Authenticate incoming requests using API key"""
+    if not API_KEY:
+        # If no API key is configured, allow all requests (for development)
+        return True
+
+    auth_header = request.headers.get("Authorization")
+    if not auth_header:
+        return False
+
+    # Support both "Bearer <token>" and "API-Key <key>" formats
+    if auth_header.startswith("Bearer "):
+        provided_key = auth_header[7:]  # Remove "Bearer "
+    elif auth_header.startswith("API-Key "):
+        provided_key = auth_header[8:]  # Remove "API-Key "
+    else:
+        provided_key = auth_header
+
+    return provided_key == API_KEY
+
+async def authenticated_mcp_handler(request: Request):
+    """Handle MCP requests with authentication"""
+    if not authenticate_request(request):
+        raise HTTPException(status_code=401, detail="Invalid or missing API key")
+
+    # Get the MCP ASGI app
+    mcp_app = mcp.asgi_app()
+
+    # Forward the request to MCP
+    return await mcp_app(request.scope, request.receive, request.send)
+
 if __name__ == "__main__":
-    # Ensure the Streamable HTTP server is reachable from outside the container
-    # FastMCP exposes server settings via the `settings` object.
-    mcp.settings.host = "0.0.0.0"
-    mcp.settings.port = 8000
-    # Run the server with streamable-http transport. The settings above will
-    # cause the underlying ASGI server to bind to 0.0.0.0:8000 so docker port
-    # mapping to host port 8200 works correctly.
-    mcp.run(transport="streamable-http")
+    if API_KEY:
+        # Create FastAPI app with authentication
+        app = FastAPI(title="WooCommerce MCP Server", description="Authenticated MCP server for WooCommerce")
+
+        @app.get("/")
+        async def root():
+            return {"message": "WooCommerce MCP Server", "authenticated": True}
+
+        @app.api_route("/mcp", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"])
+        async def mcp_endpoint(request: Request):
+            return await authenticated_mcp_handler(request)
+
+        # Run with uvicorn
+        uvicorn.run(app, host="0.0.0.0", port=8000)
+    else:
+        # Run without authentication (original behavior)
+        mcp.settings.host = "0.0.0.0"
+        mcp.settings.port = 8000
+        mcp.run(transport="streamable-http")

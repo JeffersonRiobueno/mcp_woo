@@ -8,8 +8,37 @@ y demuestra cómo listar herramientas y usar algunas de ellas.
 
 import asyncio
 import os
+import requests
+from typing import Dict, Any
 from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Authentication
+API_KEY = os.getenv("MCP_API_KEY")
+
+
+class AuthenticatedStreamableHTTPClient:
+    """Wrapper para streamablehttp_client con autenticación"""
+
+    def __init__(self, url: str, api_key: str = None):
+        self.url = url
+        self.api_key = api_key
+        self.session = requests.Session()
+        if api_key:
+            self.session.headers.update({"Authorization": f"Bearer {api_key}"})
+
+    async def __aenter__(self):
+        # Usar el cliente original pero con sesión autenticada
+        # Nota: Esta es una simplificación. En producción necesitarías
+        # modificar el streamablehttp_client para aceptar headers
+        return streamablehttp_client(self.url)
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        pass
 
 
 async def main():
@@ -19,11 +48,22 @@ async def main():
     server_url = "http://localhost:8200/mcp"
 
     print(f"Conectando al servidor MCP en: {server_url}")
+    if API_KEY:
+        print("🔐 Usando autenticación con API key")
+    else:
+        print("⚠️  Sin autenticación configurada")
 
     try:
         # Conectar al servidor MCP usando transporte streamable HTTP
         async with streamablehttp_client(server_url) as (read_stream, write_stream, _):
             async with ClientSession(read_stream, write_stream) as session:
+                # Si hay API key, agregar header de autorización
+                if API_KEY:
+                    # Nota: El cliente streamablehttp_client no soporta headers fácilmente
+                    # Para producción, necesitarías un cliente personalizado
+                    print("⚠️  Advertencia: El cliente actual no soporta autenticación completa")
+                    print("   Usa los scripts curl con --header 'Authorization: Bearer YOUR_KEY'")
+
                 # Inicializar la sesión MCP
                 await session.initialize()
                 print("✅ Sesión MCP inicializada correctamente")
