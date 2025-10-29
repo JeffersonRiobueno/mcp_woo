@@ -86,9 +86,21 @@ The project uses a modular architecture with the following structure:
 - `src/config.py` - Environment configuration and validation
 - `src/woo_client.py` - WooCommerce API client wrapper
 - `src/models.py` - Pydantic models for structured data
-- `client_authenticated.py` - Full-featured authenticated MCP client (recommended)
-- `client_example.py` - Basic MCP client using official libraries (limited auth support)
-- `list_tools.py` - Simple tool listing script
+- `test/client_authenticated.py` - Full-featured authenticated MCP client (recommended)
+- `test/client_example.py` - Basic MCP client using official libraries (limited auth support)
+- `test/list_tools.py` - Simple tool listing script
+
+## Client Compatibility Matrix
+
+| Component | With API Key (Production) | Without API Key (Development) | Notes |
+|-----------|---------------------------|-------------------------------|-------|
+| **`test/client_authenticated.py`** | ✅ **Fully Supported** | ❌ Requires API key | Recommended client with full auth support |
+| **Curl Scripts** (`test/*.sh`) | ✅ **Fully Supported** | ❌ Requires API key | Manual testing with proper auth headers |
+| **`test/test_auth.sh`** | ✅ **Fully Supported** | ❌ Requires API key | Authentication validation script |
+| **`test/list_tools.py`** | ❌ Limited support¹ | ✅ **Works** | Uses official MCP libraries |
+| **`test/client_example.py`** | ❌ Limited support¹ | ✅ **Works** | Uses official MCP libraries |
+
+¹ *Limited support: May fail with authentication errors when API key is required*
 
 ## API Endpoints
 
@@ -116,7 +128,7 @@ The project includes example MCP clients to test the server:
 #### Authenticated Client (Recommended)
 
 ```bash
-python client_authenticated.py
+python test/client_authenticated.py
 ```
 
 This is the **recommended client** for testing. It provides:
@@ -129,7 +141,7 @@ This is the **recommended client** for testing. It provides:
 #### Simple Tool Lister
 
 ```bash
-python list_tools.py
+python test/list_tools.py
 ```
 
 This script connects to the MCP server and lists all available tools with their descriptions and parameters.
@@ -137,7 +149,7 @@ This script connects to the MCP server and lists all available tools with their 
 #### Basic Example Client (Limited)
 
 ```bash
-python client_example.py
+python test/client_example.py
 ```
 
 This client uses official MCP libraries but has limitations:
@@ -152,42 +164,18 @@ The project includes curl scripts for easy testing:
 ```bash
 # Update the AUTH_HEADER in the scripts with your API key
 # Then run:
-./curl_list_products.sh
-./curl_search_products.sh pulseras
-./curl_create_order.sh
+./test/curl_list_products.sh
+./test/curl_search_products.sh pulseras
+./test/curl_create_order.sh
 ```
 
 These scripts demonstrate proper authentication and SSE response handling.
 
-### Manual Testing with Authentication
-
-When authentication is enabled, include the API key in all requests:
+### Authentication Testing
 
 ```bash
-# Initialize session with authentication
-curl -X POST http://localhost:8200/mcp \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_API_KEY_HERE" \
-  -d '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "test-client", "version": "1.0.0"}}}'
-
-# List tools with authentication
-curl -X POST http://localhost:8200/mcp \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_API_KEY_HERE" \
-  -H "Mcp-Session-Id: YOUR_SESSION_ID" \
-  -d '{"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}'
+# Run authentication tests
+./test/test_auth.sh
 ```
 
-### Testing Scripts
-
-The project includes curl scripts for easy testing:
-
-```bash
-# Update the AUTH_HEADER in the scripts with your API key
-# Then run:
-./curl_list_products.sh
-./curl_search_products.sh pulseras
-./curl_create_order.sh
-```
-
-These scripts demonstrate proper authentication and SSE response handling.
+This script validates that authentication is working correctly by testing different scenarios.
