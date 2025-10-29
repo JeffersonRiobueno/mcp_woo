@@ -68,12 +68,27 @@ Authorization: Bearer YOUR_API_KEY_HERE
 docker-compose up --build
 ```
 
+The server will start on `http://localhost:8200/mcp` with modular architecture.
+
 ### With Python
 
 ```bash
 pip install -r requirements.txt
-python main.py
+python -m src.server
 ```
+
+## Architecture
+
+The project uses a modular architecture with the following structure:
+
+- `src/server.py` - FastAPI application with MCP integration and authentication
+- `src/tools.py` - MCP tools implementation (5 tools for WooCommerce operations)
+- `src/config.py` - Environment configuration and validation
+- `src/woo_client.py` - WooCommerce API client wrapper
+- `src/models.py` - Pydantic models for structured data
+- `client_authenticated.py` - Full-featured authenticated MCP client (recommended)
+- `client_example.py` - Basic MCP client using official libraries (limited auth support)
+- `list_tools.py` - Simple tool listing script
 
 ## API Endpoints
 
@@ -98,6 +113,19 @@ The server exposes the following MCP tools:
 
 The project includes example MCP clients to test the server:
 
+#### Authenticated Client (Recommended)
+
+```bash
+python client_authenticated.py
+```
+
+This is the **recommended client** for testing. It provides:
+- ✅ Full API key authentication support
+- ✅ Proper SSE response parsing
+- ✅ Complete tool testing (list_products, search_products, etc.)
+- ✅ Detailed output with product information
+- ✅ Error handling and session management
+
 #### Simple Tool Lister
 
 ```bash
@@ -106,25 +134,30 @@ python list_tools.py
 
 This script connects to the MCP server and lists all available tools with their descriptions and parameters.
 
-#### Complete Example Client
+#### Basic Example Client (Limited)
 
 ```bash
 python client_example.py
 ```
 
-This comprehensive client demonstrates:
-- Connecting to the MCP server
-- Listing tools, resources, and prompts
-- Calling tools (`list_products` and `search_products`)
-- Handling structured responses
+This client uses official MCP libraries but has limitations:
+- ❌ Limited authentication support (may fail with API key auth)
+- ❌ May encounter connection errors with authenticated servers
+- ✅ Good for understanding MCP protocol structure
 
-#### Authenticated Client
+### Testing Scripts
+
+The project includes curl scripts for easy testing:
 
 ```bash
-python client_authenticated.py
+# Update the AUTH_HEADER in the scripts with your API key
+# Then run:
+./curl_list_products.sh
+./curl_search_products.sh pulseras
+./curl_create_order.sh
 ```
 
-This client demonstrates how to connect with API key authentication and provides detailed examples of tool usage.
+These scripts demonstrate proper authentication and SSE response handling.
 
 ### Manual Testing with Authentication
 
@@ -154,8 +187,7 @@ The project includes curl scripts for easy testing:
 # Then run:
 ./curl_list_products.sh
 ./curl_search_products.sh pulseras
+./curl_create_order.sh
 ```
 
-### Testing Without Authentication
-
-If `MCP_API_KEY` is not set, the server runs without authentication for development. Remove the `Authorization` header from test requests.
+These scripts demonstrate proper authentication and SSE response handling.

@@ -10,7 +10,7 @@
 SERVER_URL="http://localhost:8200/mcp"
 CONTENT_TYPE="Content-Type: application/json"
 ACCEPT="Accept: application/json, text/event-stream"
-AUTH_HEADER="Authorization: Bearer YOUR_API_KEY_HERE"  # Cambia esto por tu API key real
+AUTH_HEADER="Authorization: Bearer your_secure_api_key_here"  # API key configurada en .env
 
 echo "🔍 Consultando lista de productos del servidor MCP WooCommerce"
 echo "Servidor: $SERVER_URL"

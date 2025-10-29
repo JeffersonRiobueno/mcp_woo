@@ -10,7 +10,7 @@
 SERVER_URL="http://localhost:8200/mcp"
 CONTENT_TYPE="Content-Type: application/json"
 ACCEPT="Accept: application/json, text/event-stream"
-AUTH_HEADER="Authorization: Bearer YOUR_API_KEY_HERE"  # Cambia esto por tu API key real
+AUTH_HEADER="Authorization: Bearer your_secure_api_key_here"  # API key configurada en .env
 
 # Parámetros de búsqueda
 SEARCH_QUERY="${1:-pulseras}"  # Usar primer argumento o "pulseras" por defecto
@@ -81,20 +81,27 @@ echo
 if echo "$SEARCH_RESPONSE" | grep -q '"result"'; then
     echo "✅ Búsqueda completada!"
 
-    # Intentar extraer productos de structuredContent
-    PRODUCTS=$(echo "$SEARCH_RESPONSE" | jq -r '.result.structuredContent // empty' 2>/dev/null)
+    # Extraer el JSON de la respuesta SSE (línea que comienza con "data:")
+    JSON_DATA=$(echo "$SEARCH_RESPONSE" | grep '^data:' | sed 's/^data: //' | head -1)
+    
+    if [ -n "$JSON_DATA" ]; then
+        # Intentar extraer productos de structuredContent.result
+        PRODUCTS=$(echo "$JSON_DATA" | jq -r '.result.structuredContent.result // empty' 2>/dev/null)
 
-    if [ -n "$PRODUCTS" ] && [ "$PRODUCTS" != "null" ] && [ "$PRODUCTS" != "[]" ]; then
-        echo "🛍️  Productos encontrados:"
-        echo "$PRODUCTS" | jq -r '.[] | "• \(.name) - $\(.price) (\(.stock_status))"' 2>/dev/null || echo "Formato de productos no estándar"
-        echo
-        echo "📊 Total de productos: $(echo "$PRODUCTS" | jq '. | length' 2>/dev/null || echo "N/A")"
+        if [ -n "$PRODUCTS" ] && [ "$PRODUCTS" != "null" ] && [ "$PRODUCTS" != "[]" ]; then
+            echo "🛍️  Productos encontrados:"
+            echo "$PRODUCTS" | jq -r '.[] | "• \(.name) - $\(.price) (\(.stock_status))"' 2>/dev/null || echo "Formato de productos no estándar"
+            echo
+            echo "📊 Total de productos: $(echo "$PRODUCTS" | jq '. | length' 2>/dev/null || echo "N/A")"
+        else
+            echo "📭 No se encontraron productos con el término '$SEARCH_QUERY'"
+            echo "💡 Sugerencias:"
+            echo "   • Verifica que la tienda WooCommerce tenga productos"
+            echo "   • Revisa las credenciales de API en el archivo .env"
+            echo "   • Intenta con otros términos de búsqueda"
+        fi
     else
-        echo "📭 No se encontraron productos con el término '$SEARCH_QUERY'"
-        echo "💡 Sugerencias:"
-        echo "   • Verifica que la tienda WooCommerce tenga productos"
-        echo "   • Revisa las credenciales de API en el archivo .env"
-        echo "   • Intenta con otros términos de búsqueda"
+        echo "❌ Error procesando respuesta del servidor"
     fi
 else
     echo "❌ Error en la búsqueda"

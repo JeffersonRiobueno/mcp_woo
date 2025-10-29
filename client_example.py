@@ -4,6 +4,9 @@ Ejemplo de cliente MCP para probar el servidor WooCommerce MCP.
 
 Este cliente se conecta al servidor MCP corriendo en localhost:8200
 y demuestra cómo listar herramientas y usar algunas de ellas.
+
+NOTA: Este cliente básico no maneja autenticación completa.
+Para autenticación completa, usa client_authenticated.py
 """
 
 import asyncio
@@ -21,26 +24,6 @@ load_dotenv()
 API_KEY = os.getenv("MCP_API_KEY")
 
 
-class AuthenticatedStreamableHTTPClient:
-    """Wrapper para streamablehttp_client con autenticación"""
-
-    def __init__(self, url: str, api_key: str = None):
-        self.url = url
-        self.api_key = api_key
-        self.session = requests.Session()
-        if api_key:
-            self.session.headers.update({"Authorization": f"Bearer {api_key}"})
-
-    async def __aenter__(self):
-        # Usar el cliente original pero con sesión autenticada
-        # Nota: Esta es una simplificación. En producción necesitarías
-        # modificar el streamablehttp_client para aceptar headers
-        return streamablehttp_client(self.url)
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        pass
-
-
 async def main():
     """Función principal del cliente MCP."""
 
@@ -50,19 +33,16 @@ async def main():
     print(f"Conectando al servidor MCP en: {server_url}")
     if API_KEY:
         print("🔐 Usando autenticación con API key")
+        print("⚠️  Advertencia: El cliente actual no soporta autenticación completa")
+        print("   Usa los scripts curl con --header 'Authorization: Bearer YOUR_KEY'")
+        print("   O usa client_authenticated.py para autenticación completa")
     else:
-        print("⚠️  Sin autenticación configurada")
+        print("⚠️  Sin autenticación configurada - solo funciona en modo desarrollo")
 
     try:
         # Conectar al servidor MCP usando transporte streamable HTTP
         async with streamablehttp_client(server_url) as (read_stream, write_stream, _):
             async with ClientSession(read_stream, write_stream) as session:
-                # Si hay API key, agregar header de autorización
-                if API_KEY:
-                    # Nota: El cliente streamablehttp_client no soporta headers fácilmente
-                    # Para producción, necesitarías un cliente personalizado
-                    print("⚠️  Advertencia: El cliente actual no soporta autenticación completa")
-                    print("   Usa los scripts curl con --header 'Authorization: Bearer YOUR_KEY'")
 
                 # Inicializar la sesión MCP
                 await session.initialize()
@@ -112,11 +92,13 @@ async def main():
                 # Ejemplo: Llamar a la herramienta search_products
                 print("\n🔍 Probando herramienta 'search_products'...")
                 try:
-                    result = await session.call_tool("search_products", arguments={"query": "test", "per_page": 3})
+                    result = await session.call_tool("search_products", arguments={"query": "pulsera", "per_page": 3})
                     print("✅ Resultado de search_products:")
                     if result.structuredContent:
                         products = result.structuredContent
                         print(f"   Productos encontrados: {len(products) if isinstance(products, list) else 'N/A'}")
+                        if isinstance(products, list) and products:
+                            print(f"   Primer producto: {products[0].get('name', 'N/A')}")
                 except Exception as e:
                     print(f"❌ Error al llamar search_products: {e}")
 
@@ -125,6 +107,9 @@ async def main():
     except Exception as e:
         print(f"❌ Error conectando al servidor MCP: {e}")
         print("Asegúrate de que el servidor esté corriendo con: docker compose up")
+        if "unhandled errors in a TaskGroup" in str(e):
+            print("💡 Este error puede deberse a problemas de autenticación.")
+            print("   Usa client_authenticated.py para autenticación completa.")
 
 
 if __name__ == "__main__":
