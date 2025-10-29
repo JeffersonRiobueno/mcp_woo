@@ -8,6 +8,11 @@
 # 3. Con API key incorrecta (debe fallar)
 #
 
+# Cargar variables de entorno del .env file si existe
+if [ -f ".env" ]; then
+    export $(grep -v '^#' .env | xargs)
+fi
+
 # Configuración
 SERVER_URL="http://localhost:8200/mcp"
 CONTENT_TYPE="Content-Type: application/json"
@@ -15,6 +20,7 @@ ACCEPT="Accept: application/json, text/event-stream"
 
 echo "🔐 Probando Autenticación del Servidor MCP WooCommerce"
 echo "Servidor: $SERVER_URL"
+echo "API Key configurada: ${MCP_API_KEY:0:10}..."
 echo
 
 # Función para probar una petición
@@ -25,29 +31,31 @@ test_request() {
 
     echo "🧪 $description"
 
-    local headers="$CONTENT_TYPE"
+    # Construir comando curl
+    local curl_cmd="curl -s -w '\nHTTP_STATUS:%{http_code}' -X POST '$SERVER_URL' -H '$CONTENT_TYPE' -H '$ACCEPT'"
+
+    # Agregar header de autenticación si existe
     if [ -n "$auth_header" ]; then
-        headers="$headers\n$auth_header"
+        curl_cmd="$curl_cmd -H '$auth_header'"
     fi
 
-    # Hacer petición de inicialización
-    local response=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST "$SERVER_URL" \
-      -H "$CONTENT_TYPE" \
-      -H "$ACCEPT" \
-      $([ -n "$auth_header" ] && echo "-H \"$auth_header\"") \
-      -d '{
-        "jsonrpc": "2.0",
-        "id": 1,
-        "method": "initialize",
-        "params": {
-          "protocolVersion": "2024-11-05",
-          "capabilities": {},
-          "clientInfo": {"name": "auth-test", "version": "1.0.0"}
+    # Agregar datos JSON
+    curl_cmd="$curl_cmd -d '{
+        \"jsonrpc\": \"2.0\",
+        \"id\": 1,
+        \"method\": \"initialize\",
+        \"params\": {
+          \"protocolVersion\": \"2024-11-05\",
+          \"capabilities\": {},
+          \"clientInfo\": {\"name\": \"auth-test\", \"version\": \"1.0.0\"}
         }
-      }')
+      }'"
+
+    # Ejecutar comando
+    local response=$(eval "$curl_cmd")
 
     # Extraer status HTTP
-    local http_status=$(echo "$response" | grep "HTTP_STATUS:" | cut -d: -f2)
+    local http_status=$(echo "$response" | grep "HTTP_STATUS:" | cut -d: -f2 | tr -d '\r')
     local body=$(echo "$response" | sed '/HTTP_STATUS:/d')
 
     if [ "$http_status" = "$expected_status" ]; then
@@ -79,7 +87,7 @@ echo
 test_request "Sin autenticación (modo desarrollo)" "" "200"
 
 # Prueba 3: Con API key válida (debería funcionar)
-API_KEY="${MCP_API_KEY:-test_key_12345}"
+API_KEY="${MCP_API_KEY:-your_secure_api_key_here}"
 test_request "Con API key válida" "Authorization: Bearer $API_KEY" "200"
 
 # Prueba 4: Con API key inválida (debería fallar si hay autenticación)
