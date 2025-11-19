@@ -179,3 +179,53 @@ These scripts demonstrate proper authentication and SSE response handling.
 ```
 
 This script validates that authentication is working correctly by testing different scenarios.
+
+## Data Ingestion Examples
+
+The project includes example scripts for ingesting product data from the MCP server:
+
+### Bash Script (Recommended for Automation)
+
+```bash
+# Run the ingestion script
+./ingestion_example.sh
+```
+
+This script demonstrates the correct format for MCP requests and handles SSE responses.
+
+### Python Script
+
+```bash
+# Activate virtual environment and run
+source .venv/bin/activate
+python ingestion_example.py
+```
+
+This Python client shows how to programmatically ingest data with proper error handling.
+
+### MCP Request Format
+
+When building your own ingestion scripts, use this format to avoid 406 errors:
+
+```bash
+# 1. Initialize session (required)
+curl -X POST http://localhost:8200/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "ingestion-client", "version": "1.0.0"}}}'
+
+# 2. Call tools with session ID
+curl -X POST http://localhost:8200/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Mcp-Session-Id: YOUR_SESSION_ID" \
+  -d '{"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "list_products", "arguments": {"per_page": 50}}}'
+```
+
+**Important Headers:**
+- `Content-Type: application/json`
+- `Accept: application/json, text/event-stream`
+- `Authorization: Bearer YOUR_API_KEY`
+- `Mcp-Session-Id: YOUR_SESSION_ID` (after initialization)

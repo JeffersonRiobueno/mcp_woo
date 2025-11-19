@@ -8,3 +8,9 @@ services:
     volumes:
       - .:/app
     command: python -m src.server
+    networks:
+    - cluster
+
+networks:
+  cluster:
+    external: true
